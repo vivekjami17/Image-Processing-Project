@@ -272,3 +272,6 @@ frontend/
 Test fixtures come from the MIT-licensed
 [face-api demo images](https://github.com/vladmandic/face-api/tree/master/demo)
 and the [libheif example HEIC](https://github.com/strukturag/libheif/tree/master/examples).
+
+
+[Loom Video Link](https://www.loom.com/share/f4da0242f4fb4b93991a7797f8e44dd2) 
