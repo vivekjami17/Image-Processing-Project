@@ -1,11 +1,14 @@
 import { useRef, useState, type DragEvent } from 'react';
 import { ACCEPT_ATTRIBUTE, MAX_FILE_BYTES } from '../lib/validateFile';
+import { UploadIcon } from './icons';
 
 interface Props {
   onFiles: (files: File[]) => void;
+  /** True while any recently-added file is still being validated or sent to the server. */
+  uploading: boolean;
 }
 
-export function DropZone({ onFiles }: Props) {
+export function DropZone({ onFiles, uploading }: Props) {
   const [dragging, setDragging] = useState(false);
   // dragenter/dragleave fire for every child element; count to know when we truly left.
   const depth = useRef(0);
@@ -38,15 +41,11 @@ export function DropZone({ onFiles }: Props) {
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
-      <svg className="dropzone__icon" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M12 16V4m0 0l-4 4m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
-      </svg>
-      <p className="dropzone__title">
-        Drag photos here or <span className="dropzone__browse">browse</span>
-      </p>
-      <p className="dropzone__hint">
-        JPEG, PNG or HEIC · up to {MAX_FILE_BYTES / 1024 / 1024} MB each
-      </p>
+      <span className={`dropzone__button${uploading ? ' dropzone__button--busy' : ''}`}>
+        {uploading ? <span className="spinner" aria-hidden="true" /> : <UploadIcon />}
+        {uploading ? 'Uploading…' : 'Click to upload or drag and drop'}
+      </span>
+      <span className="dropzone__hint">PNG, JPG, HEIC up to {Math.round(MAX_FILE_BYTES / 1024 / 1024)}MB</span>
       <input
         className="visually-hidden"
         type="file"
