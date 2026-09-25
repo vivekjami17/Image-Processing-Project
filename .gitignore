@@ -1,0 +1,2 @@
+# Local tooling (e.g. a portable Node runtime) kept outside the repo history.
+.tools/
