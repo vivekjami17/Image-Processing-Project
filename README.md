@@ -230,9 +230,18 @@ page 1,000 costs the same as page 1.
 - **Decision lock.** The advisory lock serialises only the few-millisecond
   decision step, not processing. At very high volume, the lock could be sharded
   by a hash band.
-- **Face detection limits.** The detector runs at 640 px, so faces smaller than
-  about 3% of the frame may not be detected at all. The image is then treated as
-  having no face.
+- **Face detection limits.** The detector runs at 640 px, so a full-frame pass
+  starts missing faces entirely once they're under roughly 10% of the image
+  height — the whole image is downscaled to fit the detector's input, and the
+  face shrinks along with it. When the full frame comes back empty, a second
+  pass crops four overlapping 60%×60% quadrants (anchored to each corner, so
+  adjacent quadrants share a 20% margin) and re-runs detection on each; a
+  smaller crop downscales less on the way to the same 640 px input, so a small
+  face effectively appears larger. That recovers faces down to about 6% of the
+  frame height. Detections from overlapping quadrants are merged back into
+  image coordinates with greedy non-max suppression (IoU > 0.3), so a face
+  picked up by two adjacent quadrants is reported once. Below ~6% the image is
+  still treated as having no face rather than a too-small one.
 - **Cleanup.** If deleting S3 objects fails after the row is gone, the objects
   are orphaned but unreferenced. A bucket lifecycle rule or a periodic sweep
   handles that.
