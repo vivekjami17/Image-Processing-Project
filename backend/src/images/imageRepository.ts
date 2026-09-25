@@ -135,21 +135,25 @@ export class ImageRepository {
    * processes poll concurrently without handing the same image to two of them.
    */
   async claimJobs(limit: number): Promise<ImageRow[]> {
-    const { rows } = await this.db.raw<{ rows: ImageRow[] }>(
-      `
-      UPDATE images SET status = 'processing', attempts = attempts + 1, locked_at = now(), updated_at = now()
-      WHERE id IN (
-        SELECT id FROM images
-        WHERE status = 'pending' AND run_after <= now()
-        ORDER BY run_after, created_at
-        LIMIT ?
-        FOR UPDATE SKIP LOCKED
-      )
-      RETURNING *
-      `,
-      [limit],
-    );
-    return rows;
+    return this.db.transaction(async (trx) => {
+      const { rows } = await trx.raw<{ rows: ImageRow[] }>(
+        `
+        UPDATE images SET status = 'processing', attempts = attempts + 1, locked_at = now(), updated_at = now()
+        WHERE id IN (
+          SELECT id FROM images
+          WHERE status = 'pending' AND run_after <= now()
+          ORDER BY run_after, created_at
+          LIMIT ?
+          FOR UPDATE SKIP LOCKED
+        )
+        RETURNING *
+        `,
+        [limit],
+      );
+      // Let the UI show "analyzing" rather than "queued".
+      for (const row of rows) await notifyEvent(trx, { type: 'updated', id: row.id });
+      return rows;
+    });
   }
 
   /** Return jobs whose worker died mid-flight to the queue. */

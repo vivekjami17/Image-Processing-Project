@@ -1,20 +1,44 @@
+import { readdir } from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { Knex } from 'knex';
 import { loadConfig } from '../config.js';
 import { logger } from '../logger.js';
 import { createDb } from './knex.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-// Same code runs from src/ under tsx and from dist/ after a build.
+// Same code runs from src/ (.ts, under tsx) and from dist/ (.js) after a build.
 const extension = path.extname(fileURLToPath(import.meta.url));
 
-export function migrationConfig(): Knex.MigratorConfig {
-  return { directory: path.join(here, 'migrations'), loadExtensions: [extension] };
+/**
+ * Knex records migrations by file name, extension included, so a database migrated
+ * from src/ (.ts) would look "corrupt" to the built app (.js). Naming migrations
+ * without the extension makes both views of the same migration identical.
+ */
+class MigrationSource implements Knex.MigrationSource<string> {
+  constructor(private readonly dir: string) {}
+
+  async getMigrations(): Promise<string[]> {
+    const files = await readdir(this.dir);
+    return files
+      .filter((f) => f.endsWith(extension) && !f.endsWith('.d.ts'))
+      .map((f) => f.slice(0, -extension.length))
+      .sort();
+  }
+
+  getMigrationName(name: string): string {
+    return name;
+  }
+
+  getMigration(name: string): Promise<Knex.Migration> {
+    return import(pathToFileURL(path.join(this.dir, name + extension)).href) as Promise<Knex.Migration>;
+  }
 }
 
 export async function migrateLatest(db: Knex): Promise<string[]> {
-  const [, applied] = (await db.migrate.latest(migrationConfig())) as [number, string[]];
+  const [, applied] = (await db.migrate.latest({
+    migrationSource: new MigrationSource(path.join(here, 'migrations')),
+  })) as [number, string[]];
   return applied;
 }
 
